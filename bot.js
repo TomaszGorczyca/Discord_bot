@@ -9,38 +9,35 @@ const {
 } = require("discord.js");
 
 const {
-
   checkGraids,
-
   checkSTWeekly,
-
   pickTomeWinners,
-
   loadTomeWinners,
-
   getPromotionPreview,
-
   addManualPromotion,
-
   addManualDemotion,
-
   getRankName,
-
   processWeeklyDemotions,
-
   getCurrentWeekKey
-
 } = require("./tracker");
 
 
-const client =
-  new Client({
+// =====================================================
+// DISCORD CLIENT
+// =====================================================
 
-    intents:
-      [GatewayIntentBits.Guilds]
+const client = new Client({
 
-  });
+  intents: [
+    GatewayIntentBits.Guilds
+  ]
 
+});
+
+
+// =====================================================
+// CONFIGURATION
+// =====================================================
 
 const WYNNCRAFT_URL =
   "https://api.wynncraft.com/v3/guild/prefix/TDbD";
@@ -50,20 +47,21 @@ const REPORT_CHANNEL_ID =
   process.env.REPORT_CHANNEL_ID;
 
 
-// Prevent the automatic jobs from
-// running twice during the same week.
+const PROMOTION_CHANNEL_ID =
+  process.env.PROMOTION_CHANNEL_ID;
 
-let lastAutomaticTomeDraw =
-  null;
 
-let lastAutomaticSTReset =
-  null;
+// =====================================================
+// AUTOMATIC TASK TRACKING
+// =====================================================
 
-let lastAutomaticPreview =
-  null;
+let lastAutomaticTomeDraw = null;
 
-let lastAutomaticReport =
-  null;
+let lastAutomaticSTReset = null;
+
+let lastAutomaticPreview = null;
+
+let lastAutomaticReport = null;
 
 
 // =====================================================
@@ -93,19 +91,65 @@ async function fetchGuild() {
 
 
 // =====================================================
-// REPORT HELPERS
+// COMMAND CHANNEL RESTRICTION
+// =====================================================
+
+const restrictedCommands = [
+
+  "promotion",
+
+  "demotion",
+
+  "preview",
+
+  "report"
+
+];
+
+
+function isRestrictedCommandAllowed(
+  interaction
+) {
+
+  if (
+    !restrictedCommands.includes(
+      interaction.commandName
+    )
+  ) {
+
+    return true;
+
+  }
+
+
+  return (
+    interaction.channelId ===
+    PROMOTION_CHANNEL_ID
+  );
+
+}
+
+
+// =====================================================
+// FORMAT PROMOTION / DEMOTION
 // =====================================================
 
 function formatChange(item) {
 
   return (
+
     `${item.name}: ` +
     `${getRankName(item.from)} -> ` +
     `${getRankName(item.to)}`
+
   );
 
 }
 
+
+// =====================================================
+// PROMOTION SECTION
+// =====================================================
 
 function formatPromotionSection(
   preview
@@ -132,14 +176,23 @@ function formatPromotionSection(
   ];
 
 
-  return lines.length > 0
+  if (
+    lines.length === 0
+  ) {
 
-    ? lines.join("\n")
+    return "None";
 
-    : "None";
+  }
+
+
+  return lines.join("\n");
 
 }
 
+
+// =====================================================
+// DEMOTION SECTION
+// =====================================================
 
 function formatDemotionSection(
   preview
@@ -166,11 +219,16 @@ function formatDemotionSection(
   ];
 
 
-  return lines.length > 0
+  if (
+    lines.length === 0
+  ) {
 
-    ? lines.join("\n")
+    return "None";
 
-    : "None";
+  }
+
+
+  return lines.join("\n");
 
 }
 
@@ -274,9 +332,9 @@ function buildFullReportEmbeds(
   const embeds = [];
 
 
-  // ---------------------------------------------------
+  // ===================================================
   // SECTION 1
-  // ---------------------------------------------------
+  // ===================================================
 
   const promotions =
     formatPromotionSection(
@@ -331,9 +389,9 @@ function buildFullReportEmbeds(
   );
 
 
-  // ---------------------------------------------------
+  // ===================================================
   // SECTION 2
-  // ---------------------------------------------------
+  // ===================================================
 
   embeds.push(
 
@@ -359,9 +417,9 @@ function buildFullReportEmbeds(
   );
 
 
-  // ---------------------------------------------------
+  // ===================================================
   // SECTION 3
-  // ---------------------------------------------------
+  // ===================================================
 
   const winners =
     tomeData?.winners || [];
@@ -395,9 +453,9 @@ function buildFullReportEmbeds(
   );
 
 
-  // ---------------------------------------------------
+  // ===================================================
   // SECTION 4
-  // ---------------------------------------------------
+  // ===================================================
 
   embeds.push(
 
@@ -427,7 +485,7 @@ function buildFullReportEmbeds(
 
 
 // =====================================================
-// SEND AUTOMATIC PREVIEW
+// SEND PREVIEW REPORT
 // =====================================================
 
 async function sendPreviewReport() {
@@ -478,6 +536,11 @@ async function sendFullReport() {
 
   const guild =
     await fetchGuild();
+
+
+  processWeeklyDemotions(
+    guild
+  );
 
 
   const preview =
@@ -551,7 +614,7 @@ client.once(
 
 
 // =====================================================
-// COMMAND HANDLER
+// INTERACTION HANDLER
 // =====================================================
 
 client.on(
@@ -561,6 +624,32 @@ client.on(
     if (
       !interaction.isChatInputCommand()
     ) {
+
+      return;
+
+    }
+
+
+    // =================================================
+    // RESTRICTED COMMAND CHECK
+    // =================================================
+
+    if (
+      !isRestrictedCommandAllowed(
+        interaction
+      )
+    ) {
+
+      await interaction.reply({
+
+        content:
+          "This command can only be used in the designated promotion channel.",
+
+        ephemeral:
+          true
+
+      });
+
 
       return;
 
@@ -696,6 +785,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -857,6 +947,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -962,6 +1053,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1096,6 +1188,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1180,6 +1273,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1242,6 +1336,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1255,7 +1350,10 @@ client.on(
     ) {
 
       await interaction.deferReply({
-        ephemeral: true
+
+        ephemeral:
+          true
+
       });
 
 
@@ -1323,6 +1421,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1336,7 +1435,10 @@ client.on(
     ) {
 
       await interaction.deferReply({
-        ephemeral: true
+
+        ephemeral:
+          true
+
       });
 
 
@@ -1404,6 +1506,7 @@ client.on(
 
 
       return;
+
     }
 
 
@@ -1472,13 +1575,12 @@ client.on(
     }
 
   }
-
 );
 
 
 // =====================================================
 // AUTOMATIC TOME DRAW
-// Monday 4:50 AM
+// MONDAY 4:50 AM IRELAND
 // =====================================================
 
 async function automaticTomeWinnerDraw() {
@@ -1588,7 +1690,7 @@ async function automaticTomeWinnerDraw() {
 
 // =====================================================
 // AUTOMATIC ST WEEKLY RESET
-// Monday 4:55 AM
+// MONDAY 4:55 AM IRELAND
 // =====================================================
 
 async function automaticSTWeeklyReset() {
@@ -1675,7 +1777,7 @@ async function automaticSTWeeklyReset() {
 
 // =====================================================
 // AUTOMATIC PREVIEW
-// Monday 5:20 AM
+// MONDAY 5:20 AM IRELAND
 // =====================================================
 
 async function automaticPreview() {
@@ -1749,7 +1851,7 @@ async function automaticPreview() {
 
 // =====================================================
 // AUTOMATIC FULL REPORT
-// Monday 8:00 PM
+// MONDAY 8:00 PM IRELAND
 // =====================================================
 
 async function automaticReport() {
@@ -1822,7 +1924,7 @@ async function automaticReport() {
 
 
 // =====================================================
-// CHECK AUTOMATIC TASKS EVERY MINUTE
+// RUN AUTOMATIC TASK CHECKS EVERY MINUTE
 // =====================================================
 
 setInterval(

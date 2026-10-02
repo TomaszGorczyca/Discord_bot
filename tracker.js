@@ -259,11 +259,8 @@ function collectCurrentStreaks(guild) {
 
     for (const name in members) {
 
-      const player =
-        members[name];
-
       const streak =
-        player.weekly?.streak;
+        members[name].weekly?.streak;
 
 
       if (
@@ -293,8 +290,6 @@ function checkSTWeekly(guild) {
   const currentData =
     collectCurrentStreaks(guild);
 
-
-  // First run
 
   if (!savedData) {
 
@@ -332,8 +327,6 @@ function checkSTWeekly(guild) {
 
   }
 
-
-  // Compare against baseline
 
   const completed = [];
 
@@ -638,7 +631,7 @@ function getPreviousRank(rank) {
 
 
 // =====================================================
-// PROMOTION FILE
+// PROMOTIONS
 // =====================================================
 
 function loadPromotions() {
@@ -700,79 +693,6 @@ function savePromotions(data) {
 }
 
 
-// =====================================================
-// DEMOTION FILE
-// =====================================================
-
-function loadDemotions() {
-
-  const data =
-    loadJsonFile(
-      DEMOTIONS_FILE,
-      {
-
-        lastProcessedWeek:
-          null,
-
-        members: {},
-
-        automatic: [],
-
-        manual: []
-
-      }
-    );
-
-
-  if (
-    !data.members ||
-    typeof data.members !== "object"
-  ) {
-
-    data.members = {};
-
-  }
-
-
-  if (
-    !Array.isArray(
-      data.automatic
-    )
-  ) {
-
-    data.automatic = [];
-
-  }
-
-
-  if (
-    !Array.isArray(
-      data.manual
-    )
-  ) {
-
-    data.manual = [];
-
-  }
-
-
-  return data;
-}
-
-
-function saveDemotions(data) {
-
-  saveJsonFile(
-    DEMOTIONS_FILE,
-    data
-  );
-}
-
-
-// =====================================================
-// AUTOMATIC PROMOTIONS
-// =====================================================
-
 function getAutomaticPromotions(guild) {
 
   const promotions = [];
@@ -803,8 +723,6 @@ function getAutomaticPromotions(guild) {
     }
 
 
-    // Recruit -> Recruiter
-
     if (
       member.rank === "recruit" &&
       streak >= 3
@@ -826,8 +744,6 @@ function getAutomaticPromotions(guild) {
 
     }
 
-
-    // Recruiter -> Captain
 
     if (
       member.rank === "recruiter" &&
@@ -856,229 +772,6 @@ function getAutomaticPromotions(guild) {
   return promotions;
 }
 
-
-// =====================================================
-// WEEKLY DEMOTION PROCESSING
-// =====================================================
-
-function processWeeklyDemotions(guild) {
-
-  const data =
-    loadDemotions();
-
-
-  const currentWeek =
-    getCurrentWeekKey();
-
-
-  // Do not process the same week twice.
-
-  if (
-    data.lastProcessedWeek ===
-    currentWeek
-  ) {
-
-    return data.automatic || [];
-
-  }
-
-
-  const currentMembers =
-    getGuildMembers(guild);
-
-
-  const previousMembers =
-    data.members || {};
-
-
-  const newMembers = {};
-
-  const automatic = [];
-
-
-  for (
-    const name in currentMembers
-  ) {
-
-    const member =
-      currentMembers[name];
-
-
-    const streak =
-      member.player
-        .weekly
-        ?.streak;
-
-
-    if (
-      typeof streak !==
-      "number"
-    ) {
-
-      continue;
-
-    }
-
-
-    const previous =
-      previousMembers[name];
-
-
-    // New member
-
-    if (!previous) {
-
-      newMembers[name] = {
-
-        streak: streak,
-
-        inactiveWeeks: 0,
-
-        rank:
-          member.rank
-
-      };
-
-
-      continue;
-
-    }
-
-
-    const completed =
-      member.player
-        .weekly
-        ?.completed === true;
-
-
-    let inactiveWeeks;
-
-
-    if (completed) {
-
-      inactiveWeeks = 0;
-
-    } else {
-
-      inactiveWeeks =
-        (
-          previous.inactiveWeeks ||
-          0
-        ) + 1;
-
-    }
-
-
-    newMembers[name] = {
-
-      streak: streak,
-
-      inactiveWeeks:
-        inactiveWeeks,
-
-      rank:
-        member.rank
-
-    };
-
-
-    // Two inactive weeks
-
-    if (
-      inactiveWeeks >= 2 &&
-      member.rank !== "recruit"
-    ) {
-
-      const to =
-        getPreviousRank(
-          member.rank
-        );
-
-
-      if (to) {
-
-        automatic.push({
-
-          name: name,
-
-          from:
-            member.rank,
-
-          to: to,
-
-          streak:
-            streak,
-
-          inactiveWeeks:
-            inactiveWeeks,
-
-          type:
-            "automatic"
-
-        });
-
-      }
-
-
-      // Prevent the same demotion from appearing
-      // every time the report is opened.
-
-      newMembers[name]
-        .inactiveWeeks = 0;
-
-    }
-
-  }
-
-
-  data.lastProcessedWeek =
-    currentWeek;
-
-  data.members =
-    newMembers;
-
-  data.automatic =
-    automatic;
-
-
-  saveDemotions(
-    data
-  );
-
-
-  return automatic;
-}
-
-
-function getAutomaticDemotions(guild) {
-
-  const data =
-    loadDemotions();
-
-
-  const currentWeek =
-    getCurrentWeekKey();
-
-
-  if (
-    data.lastProcessedWeek !==
-    currentWeek
-  ) {
-
-    return processWeeklyDemotions(
-      guild
-    );
-
-  }
-
-
-  return data.automatic || [];
-}
-
-
-// =====================================================
-// MANUAL PROMOTION
-// =====================================================
 
 function addManualPromotion(
   guild,
@@ -1137,23 +830,6 @@ function addManualPromotion(
     RANK_LEVELS[
       normalizedTarget
     ];
-
-
-  if (
-    currentLevel === undefined ||
-    targetLevel === undefined
-  ) {
-
-    return {
-
-      success: false,
-
-      error:
-        "Member rank could not be determined."
-
-    };
-
-  }
 
 
   if (
@@ -1228,8 +904,279 @@ function addManualPromotion(
 
 
 // =====================================================
-// MANUAL DEMOTION
+// DEMOTIONS
 // =====================================================
+
+function loadDemotions() {
+
+  const data =
+    loadJsonFile(
+      DEMOTIONS_FILE,
+      {
+
+        lastProcessedWeek:
+          null,
+
+        members: {},
+
+        automatic: [],
+
+        manual: []
+
+      }
+    );
+
+
+  if (
+    !data.members ||
+    typeof data.members !== "object"
+  ) {
+
+    data.members = {};
+
+  }
+
+
+  if (
+    !Array.isArray(
+      data.automatic
+    )
+  ) {
+
+    data.automatic = [];
+
+  }
+
+
+  if (
+    !Array.isArray(
+      data.manual
+    )
+  ) {
+
+    data.manual = [];
+
+  }
+
+
+  return data;
+}
+
+
+function saveDemotions(data) {
+
+  saveJsonFile(
+    DEMOTIONS_FILE,
+    data
+  );
+}
+
+
+function processWeeklyDemotions(guild) {
+
+  const data =
+    loadDemotions();
+
+
+  const currentWeek =
+    getCurrentWeekKey();
+
+
+  if (
+    data.lastProcessedWeek ===
+    currentWeek
+  ) {
+
+    return data.automatic || [];
+
+  }
+
+
+  const currentMembers =
+    getGuildMembers(guild);
+
+
+  const previousMembers =
+    data.members || {};
+
+
+  const newMembers = {};
+
+  const automatic = [];
+
+
+  for (
+    const name in currentMembers
+  ) {
+
+    const member =
+      currentMembers[name];
+
+
+    const streak =
+      member.player
+        .weekly
+        ?.streak;
+
+
+    if (
+      typeof streak !==
+      "number"
+    ) {
+
+      continue;
+
+    }
+
+
+    const previous =
+      previousMembers[name];
+
+
+    if (!previous) {
+
+      newMembers[name] = {
+
+        streak: streak,
+
+        inactiveWeeks: 0,
+
+        rank:
+          member.rank
+
+      };
+
+
+      continue;
+
+    }
+
+
+    const completed =
+      member.player
+        .weekly
+        ?.completed === true;
+
+
+    let inactiveWeeks;
+
+
+    if (completed) {
+
+      inactiveWeeks = 0;
+
+    } else {
+
+      inactiveWeeks =
+        (
+          previous.inactiveWeeks ||
+          0
+        ) + 1;
+
+    }
+
+
+    newMembers[name] = {
+
+      streak: streak,
+
+      inactiveWeeks:
+        inactiveWeeks,
+
+      rank:
+        member.rank
+
+    };
+
+
+    if (
+      inactiveWeeks >= 2 &&
+      member.rank !== "recruit"
+    ) {
+
+      const to =
+        getPreviousRank(
+          member.rank
+        );
+
+
+      if (to) {
+
+        automatic.push({
+
+          name: name,
+
+          from:
+            member.rank,
+
+          to: to,
+
+          streak:
+            streak,
+
+          inactiveWeeks:
+            inactiveWeeks,
+
+          type:
+            "automatic"
+
+        });
+
+      }
+
+
+      newMembers[name]
+        .inactiveWeeks = 0;
+
+    }
+
+  }
+
+
+  data.lastProcessedWeek =
+    currentWeek;
+
+  data.members =
+    newMembers;
+
+  data.automatic =
+    automatic;
+
+
+  saveDemotions(
+    data
+  );
+
+
+  return automatic;
+}
+
+
+function getAutomaticDemotions(guild) {
+
+  const data =
+    loadDemotions();
+
+
+  const currentWeek =
+    getCurrentWeekKey();
+
+
+  if (
+    data.lastProcessedWeek !==
+    currentWeek
+  ) {
+
+    return processWeeklyDemotions(
+      guild
+    );
+
+  }
+
+
+  return data.automatic || [];
+}
+
 
 function addManualDemotion(
   guild,
@@ -1288,23 +1235,6 @@ function addManualDemotion(
     RANK_LEVELS[
       normalizedTarget
     ];
-
-
-  if (
-    currentLevel === undefined ||
-    targetLevel === undefined
-  ) {
-
-    return {
-
-      success: false,
-
-      error:
-        "Member rank could not be determined."
-
-    };
-
-  }
 
 
   if (
@@ -1379,7 +1309,7 @@ function addManualDemotion(
 
 
 // =====================================================
-// PROMOTION / DEMOTION PREVIEW
+// PREVIEW
 // =====================================================
 
 function getPromotionPreview(guild) {
@@ -1475,8 +1405,6 @@ function pickTomeWinners(guild) {
   const existing =
     loadTomeWinners();
 
-
-  // Only use winners from this week.
 
   if (
     existing &&
